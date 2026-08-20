@@ -3,7 +3,6 @@ package updates
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"sort"
 	"strconv"
 
@@ -41,12 +40,12 @@ var checkCmd = &cobra.Command{
 			if len(args) > 0 {
 				return errors.New("--all cannot be combined with image references")
 			}
-			// The handler declares a non-pointer Body, so an empty body is a 400.
-			resp, err := c.Post(cmd.Context(), types.ImageUpdatesCheckAll(c.EnvID()), imageupdate.CheckAllImagesRequest{})
+
+			result, err := c.PostJSON[imageupdate.BatchResponse](cmd.Context(), types.ImageUpdatesCheckAll(c.EnvID()), imageupdate.CheckAllImagesRequest{})
 			if err != nil {
 				return errors.WrapIf(err, "failed to check all updates")
 			}
-			return printBatchResults(resp, "failed to check all updates")
+			return printBatchResultsInternal(result.Data)
 		}
 
 		if len(args) == 0 {
@@ -54,19 +53,14 @@ var checkCmd = &cobra.Command{
 		}
 
 		if len(args) > 1 {
-			resp, err := c.Post(cmd.Context(), types.ImageUpdatesCheckBatch(c.EnvID()), imageupdate.BatchImageUpdateRequest{ImageRefs: args})
+			result, err := c.PostJSON[imageupdate.BatchResponse](cmd.Context(), types.ImageUpdatesCheckBatch(c.EnvID()), imageupdate.BatchImageUpdateRequest{ImageRefs: args})
 			if err != nil {
 				return errors.WrapIf(err, "failed to check updates")
 			}
-			return printBatchResults(resp, "failed to check updates")
+			return printBatchResultsInternal(result.Data)
 		}
 
-		resp, err := c.Get(cmd.Context(), types.ImageUpdatesCheck(c.EnvID(), args[0]))
-		if err != nil {
-			return errors.WrapIf(err, "failed to check updates")
-		}
-
-		result, err := client.DecodeResponseStrict[imageupdate.Response](resp)
+		result, err := c.GetJSON[imageupdate.Response](cmd.Context(), types.ImageUpdatesCheck(c.EnvID(), args[0]))
 		if err != nil {
 			return errors.WrapIf(err, "failed to check updates")
 		}
@@ -106,12 +100,7 @@ var checkAllCmd = &cobra.Command{
 		}
 
 		// The handler declares a non-pointer Body, so an empty body is a 400.
-		resp, err := c.Post(cmd.Context(), types.ImageUpdatesCheckAll(c.EnvID()), imageupdate.CheckAllImagesRequest{})
-		if err != nil {
-			return errors.WrapIf(err, "failed to check all updates")
-		}
-
-		result, err := client.DecodeResponseStrict[imageupdate.BatchResponse](resp)
+		result, err := c.PostJSON[imageupdate.BatchResponse](cmd.Context(), types.ImageUpdatesCheckAll(c.EnvID()), imageupdate.CheckAllImagesRequest{})
 		if err != nil {
 			return errors.WrapIf(err, "failed to check all updates")
 		}
@@ -151,12 +140,7 @@ var checkImageCmd = &cobra.Command{
 			return err
 		}
 
-		resp, err := c.Get(cmd.Context(), types.ImageUpdatesCheckById(c.EnvID(), args[0]))
-		if err != nil {
-			return errors.WrapIf(err, "failed to check image update")
-		}
-
-		result, err := client.DecodeResponseStrict[imageupdate.Response](resp)
+		result, err := c.GetJSON[imageupdate.Response](cmd.Context(), types.ImageUpdatesCheckById(c.EnvID(), args[0]))
 		if err != nil {
 			return errors.WrapIf(err, "failed to check image update")
 		}
@@ -193,12 +177,7 @@ var summaryCmd = &cobra.Command{
 			return err
 		}
 
-		resp, err := c.Get(cmd.Context(), types.ImageUpdatesSummary(c.EnvID()))
-		if err != nil {
-			return errors.WrapIf(err, "failed to get summary")
-		}
-
-		result, err := client.DecodeResponseStrict[imageupdate.Summary](resp)
+		result, err := c.GetJSON[imageupdate.Summary](cmd.Context(), types.ImageUpdatesSummary(c.EnvID()))
 		if err != nil {
 			return errors.WrapIf(err, "failed to get summary")
 		}
@@ -221,16 +200,11 @@ var summaryCmd = &cobra.Command{
 	},
 }
 
-// printBatchResults decodes a batch update-check response and prints every
-// requested reference, including up-to-date and failed checks.
-func printBatchResults(resp *http.Response, wrapMsg string) error {
-	result, err := client.DecodeResponseStrict[imageupdate.BatchResponse](resp)
-	if err != nil {
-		return errors.WrapIf(err, wrapMsg)
-	}
-
+// printBatchResultsInternal prints every requested reference, including
+// up-to-date and failed checks.
+func printBatchResultsInternal(result imageupdate.BatchResponse) error {
 	if jsonOutput {
-		resultBytes, err := json.MarshalIndent(result.Data, "", "  ")
+		resultBytes, err := json.MarshalIndent(result, "", "  ")
 		if err != nil {
 			return errors.WrapIf(err, "failed to marshal JSON")
 		}
@@ -238,8 +212,8 @@ func printBatchResults(resp *http.Response, wrapMsg string) error {
 		return nil
 	}
 
-	refs := make([]string, 0, len(result.Data))
-	for imageRef := range result.Data {
+	refs := make([]string, 0, len(result))
+	for imageRef := range result {
 		refs = append(refs, imageRef)
 	}
 	sort.Strings(refs)
@@ -248,7 +222,7 @@ func printBatchResults(resp *http.Response, wrapMsg string) error {
 	rows := make([][]string, 0, len(refs))
 	updatesAvailable := 0
 	for _, imageRef := range refs {
-		update := result.Data[imageRef]
+		update := result[imageRef]
 		if update == nil {
 			rows = append(rows, []string{imageRef, "unknown", "", "", ""})
 			continue
@@ -266,7 +240,7 @@ func printBatchResults(resp *http.Response, wrapMsg string) error {
 	}
 
 	output.Table(headers, rows)
-	fmt.Printf("\nTotal: %d images checked, %d updates available\n", len(result.Data), updatesAvailable)
+	fmt.Printf("\nTotal: %d images checked, %d updates available\n", len(result), updatesAvailable)
 	return nil
 }
 

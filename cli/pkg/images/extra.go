@@ -95,10 +95,11 @@ var imagesHistoryCmd = &cobra.Command{
 		jsonOutput := cmdutil.JSONOutputEnabled(cmd)
 		allowPrompt := !jsonOutput && prompt.IsInteractive()
 
-		imageID, err := resolveImageID(cmd.Context(), c, args[0], allowPrompt)
+		resolved, _, err := imageRef.Resolve(cmd.Context(), c, args[0], allowPrompt)
 		if err != nil {
 			return err
 		}
+		imageID := resolved.ID
 		path := types.ImageHistory(c.EnvID(), imageID)
 
 		log.Debugf("Getting image history from: %s", path)
@@ -157,10 +158,11 @@ var imagesTagCmd = &cobra.Command{
 		jsonOutput := cmdutil.JSONOutputEnabled(cmd)
 		allowPrompt := !jsonOutput && prompt.IsInteractive()
 
-		imageID, err := resolveImageID(cmd.Context(), c, args[0], allowPrompt)
+		resolved, _, err := imageRef.Resolve(cmd.Context(), c, args[0], allowPrompt)
 		if err != nil {
 			return err
 		}
+		imageID := resolved.ID
 
 		repository, tag := splitImageRef(args[1])
 		if repository == "" {
@@ -217,10 +219,11 @@ var imagesExportCmd = &cobra.Command{
 
 		allowPrompt := prompt.IsInteractive()
 
-		imageID, err := resolveImageID(cmd.Context(), c, args[0], allowPrompt)
+		resolved, _, err := imageRef.Resolve(cmd.Context(), c, args[0], allowPrompt)
 		if err != nil {
 			return err
 		}
+		imageID := resolved.ID
 
 		outputFile := exportFileName(args[0])
 		if len(args) == 2 {

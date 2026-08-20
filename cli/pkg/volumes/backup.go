@@ -56,13 +56,13 @@ var renameCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(2),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := client.NewFromConfig()
+		c, err := cmdutil.ClientFromCommand(cmd)
 		if err != nil {
 			return err
 		}
 
 		allowPrompt := !forceFlag && !jsonOutput && prompt.IsInteractive()
-		resolved, err := resolveVolume(cmd.Context(), c, args[0], allowPrompt)
+		resolved, _, err := volumeRef.Resolve(cmd.Context(), c, args[0], allowPrompt)
 		if err != nil {
 			return err
 		}
@@ -107,13 +107,13 @@ var backupsPolicyCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := client.NewFromConfig()
+		c, err := cmdutil.ClientFromCommand(cmd)
 		if err != nil {
 			return err
 		}
 
 		allowPrompt := !jsonOutput && prompt.IsInteractive()
-		resolved, err := resolveVolume(cmd.Context(), c, args[0], allowPrompt)
+		resolved, _, err := volumeRef.Resolve(cmd.Context(), c, args[0], allowPrompt)
 		if err != nil {
 			return err
 		}
@@ -147,13 +147,13 @@ var backupsPolicyUpdateCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := client.NewFromConfig()
+		c, err := cmdutil.ClientFromCommand(cmd)
 		if err != nil {
 			return err
 		}
 
 		allowPrompt := !jsonOutput && prompt.IsInteractive()
-		resolved, err := resolveVolume(cmd.Context(), c, args[0], allowPrompt)
+		resolved, _, err := volumeRef.Resolve(cmd.Context(), c, args[0], allowPrompt)
 		if err != nil {
 			return err
 		}
@@ -331,13 +331,13 @@ var backupsListCmd = &cobra.Command{
 }
 
 func runListBackups(cmd *cobra.Command, args []string) error {
-	c, err := client.NewFromConfig()
+	c, err := cmdutil.ClientFromCommand(cmd)
 	if err != nil {
 		return err
 	}
 
 	allowPrompt := !jsonOutput && prompt.IsInteractive()
-	resolved, err := resolveVolume(cmd.Context(), c, args[0], allowPrompt)
+	resolved, _, err := volumeRef.Resolve(cmd.Context(), c, args[0], allowPrompt)
 	if err != nil {
 		return err
 	}
@@ -401,13 +401,13 @@ var backupsCreateCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := client.NewFromConfig()
+		c, err := cmdutil.ClientFromCommand(cmd)
 		if err != nil {
 			return err
 		}
 
 		allowPrompt := !jsonOutput && prompt.IsInteractive()
-		resolved, err := resolveVolume(cmd.Context(), c, args[0], allowPrompt)
+		resolved, _, err := volumeRef.Resolve(cmd.Context(), c, args[0], allowPrompt)
 		if err != nil {
 			return err
 		}
@@ -468,13 +468,13 @@ and restored instead (no backup ID).`,
 			return errors.New("--path cannot be used with --file")
 		}
 
-		c, err := client.NewFromConfig()
+		c, err := cmdutil.ClientFromCommand(cmd)
 		if err != nil {
 			return err
 		}
 
 		allowPrompt := !forceFlag && prompt.IsInteractive()
-		resolved, err := resolveVolume(cmd.Context(), c, args[0], allowPrompt)
+		resolved, _, err := volumeRef.Resolve(cmd.Context(), c, args[0], allowPrompt)
 		if err != nil {
 			return err
 		}
@@ -611,7 +611,7 @@ var backupsDeleteCmd = &cobra.Command{
 			}
 		}
 
-		c, err := client.NewFromConfig()
+		c, err := cmdutil.ClientFromCommand(cmd)
 		if err != nil {
 			return err
 		}
@@ -636,7 +636,7 @@ var backupsUploadCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := client.NewFromConfig()
+		c, err := cmdutil.ClientFromCommand(cmd)
 		if err != nil {
 			return err
 		}
@@ -674,7 +674,7 @@ var backupsDownloadCmd = &cobra.Command{
 	Args:         cobra.RangeArgs(1, 2),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := client.NewFromConfig()
+		c, err := cmdutil.ClientFromCommand(cmd)
 		if err != nil {
 			return err
 		}
@@ -740,7 +740,7 @@ var backupsFilesCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := client.NewFromConfig()
+		c, err := cmdutil.ClientFromCommand(cmd)
 		if err != nil {
 			return err
 		}
