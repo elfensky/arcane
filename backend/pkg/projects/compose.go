@@ -30,7 +30,7 @@ type Client struct {
 // NewClient builds a compose client. dockerHost, when non-empty, pins the
 // docker CLI to that daemon endpoint instead of letting it resolve one from
 // the environment.
-func NewClient(ctx context.Context, dockerHost string, authConfigs map[string]registry.AuthConfig, prompt compose.Prompt) (*Client, error) {
+func NewClient(ctx context.Context, dockerHost string, authConfigs map[string]registry.AuthConfig, prompt compose.Prompt, extraOptions ...compose.Option) (*Client, error) {
 	cli, err := command.NewDockerCli()
 	if err != nil {
 		return nil, err
@@ -83,6 +83,7 @@ func NewClient(ctx context.Context, dockerHost string, authConfigs map[string]re
 			compose.WithErrorStream(logWriter),
 		)
 	}
+	serviceOptions = append(serviceOptions, extraOptions...)
 
 	svc, err := compose.NewComposeService(composeCLI, serviceOptions...)
 	if err != nil {

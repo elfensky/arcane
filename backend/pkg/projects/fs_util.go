@@ -104,9 +104,9 @@ func isBackendModuleRoot(path string) bool {
 // ReadProjectFiles stays on os.*: compose and env files may be symlinks
 // resolving outside any confinement root, and projectPath can be an imported
 // project outside the projects directory; acfs cannot follow either.
-func ReadProjectFiles(projectPath, composePath string) (composeContent, envContent string, err error) {
+func ReadProjectFiles(ctx context.Context, projectPath, composePath string) (composeContent, envContent string, err error) {
 	if strings.TrimSpace(composePath) == "" {
-		composePath, _ = DetectComposeFile(projectPath)
+		composePath, _ = DetectComposeFile(ctx, "", projectPath)
 	}
 
 	if strings.TrimSpace(composePath) != "" {
