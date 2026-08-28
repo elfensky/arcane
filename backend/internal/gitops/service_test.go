@@ -26,6 +26,7 @@ import (
 	"github.com/getarcaneapp/arcane/backend/v2/pkg/scheduler/entityjobs"
 	"github.com/getarcaneapp/arcane/types/v2/gitops"
 	schedulertypes "github.com/getarcaneapp/arcane/types/v2/scheduler"
+	swarmtypes "github.com/getarcaneapp/arcane/types/v2/swarm"
 	"github.com/libtnb/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1386,6 +1387,24 @@ func TestGitOpsSyncService_GetOrCreateProjectInternal_FailsWhenBoundProjectMissi
 	require.NotNil(t, storedSync.LastSyncError)
 	assert.Contains(t, *storedSync.LastSyncError, "project binding")
 	assert.Contains(t, testScheduler.removed, entityjobs.GitOpsSyncJobPrefix+sync.ID)
+}
+
+func TestBuildSwarmStackDeployRequestInternal(t *testing.T) {
+	sync := &projectpkg.GitOpsSync{ProjectName: "descent", ComposePath: "deploy/swarm/compose.yaml"}
+	source := &preparedSyncSource{repoPath: "/tmp/repo", composeContent: "services: {}\n"}
+	files := []swarmtypes.SyncFile{{RelativePath: "configs/app.conf", Content: []byte("k=v")}}
+
+	req := buildSwarmStackDeployRequestInternal(sync, source, "override", "A=1", files)
+
+	// Private images can only be pulled by swarm tasks when the deploy carries registry auth.
+	assert.True(t, req.WithRegistryAuth)
+	assert.Equal(t, "descent", req.Name)
+	assert.Equal(t, "services: {}\n", req.ComposeContent)
+	assert.Equal(t, "override", req.OverrideContent)
+	assert.Equal(t, "A=1", req.EnvContent)
+	assert.Equal(t, files, req.Files)
+	assert.True(t, req.Prune)
+	assert.Equal(t, filepath.Join("/tmp/repo", "deploy/swarm"), req.WorkingDir)
 }
 
 func TestEnvContentChangedInternal(t *testing.T) {
