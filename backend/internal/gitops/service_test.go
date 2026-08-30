@@ -1389,10 +1389,15 @@ func TestGitOpsSyncService_GetOrCreateProjectInternal_FailsWhenBoundProjectMissi
 	assert.Contains(t, testScheduler.removed, entityjobs.GitOpsSyncJobPrefix+sync.ID)
 }
 
+// TestBuildSwarmStackDeployRequestInternal guards the Git Sync swarm deploy request.
+// WithRegistryAuth must always be set: swarm tasks pull with only the auth embedded in
+// the service spec, so a request without it makes every private image fail to pull.
 func TestBuildSwarmStackDeployRequestInternal(t *testing.T) {
+	t.Parallel()
+
 	files := []swarmtypes.SyncFile{{RelativePath: "configs/app.conf", Content: []byte("k=v")}}
 
-	tests := []struct {
+	cases := []struct {
 		name            string
 		sync            *projectpkg.GitOpsSync
 		source          *preparedSyncSource
@@ -1431,11 +1436,25 @@ func TestBuildSwarmStackDeployRequestInternal(t *testing.T) {
 				WorkingDir:       "/tmp/repo",
 			},
 		},
+		{
+			name:   "passes an empty file list through unchanged",
+			sync:   &projectpkg.GitOpsSync{ProjectName: "ptest", ComposePath: "stacks/compose.yaml"},
+			source: &preparedSyncSource{repoPath: "/tmp/repo", composeContent: "services: {}\n"},
+			// performSwarmStackSyncInternal always passes a non-nil slice; the builder must not reshape it.
+			files: []swarmtypes.SyncFile{},
+			want: swarmtypes.StackDeployRequest{
+				Name:             "ptest",
+				ComposeContent:   "services: {}\n",
+				Files:            []swarmtypes.SyncFile{},
+				Prune:            true,
+				WithRegistryAuth: true,
+				WorkingDir:       filepath.Join("/tmp/repo", "stacks"),
+			},
+		},
 	}
 
-	for _, tc := range tests {
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Private images can only be pulled by swarm tasks when the deploy carries registry auth.
 			got := buildSwarmStackDeployRequestInternal(tc.sync, tc.source, tc.overrideContent, tc.envContent, tc.files)
 			assert.Equal(t, tc.want, got)
 		})
