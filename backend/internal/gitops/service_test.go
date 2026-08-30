@@ -1390,21 +1390,56 @@ func TestGitOpsSyncService_GetOrCreateProjectInternal_FailsWhenBoundProjectMissi
 }
 
 func TestBuildSwarmStackDeployRequestInternal(t *testing.T) {
-	sync := &projectpkg.GitOpsSync{ProjectName: "descent", ComposePath: "deploy/swarm/compose.yaml"}
-	source := &preparedSyncSource{repoPath: "/tmp/repo", composeContent: "services: {}\n"}
 	files := []swarmtypes.SyncFile{{RelativePath: "configs/app.conf", Content: []byte("k=v")}}
 
-	req := buildSwarmStackDeployRequestInternal(sync, source, "override", "A=1", files)
+	tests := []struct {
+		name            string
+		sync            *projectpkg.GitOpsSync
+		source          *preparedSyncSource
+		overrideContent string
+		envContent      string
+		files           []swarmtypes.SyncFile
+		want            swarmtypes.StackDeployRequest
+	}{
+		{
+			name:            "populates all fields and enables registry auth",
+			sync:            &projectpkg.GitOpsSync{ProjectName: "descent", ComposePath: "deploy/swarm/compose.yaml"},
+			source:          &preparedSyncSource{repoPath: "/tmp/repo", composeContent: "services: {}\n"},
+			overrideContent: "override",
+			envContent:      "A=1",
+			files:           files,
+			want: swarmtypes.StackDeployRequest{
+				Name:             "descent",
+				ComposeContent:   "services: {}\n",
+				OverrideContent:  "override",
+				EnvContent:       "A=1",
+				Files:            files,
+				Prune:            true,
+				WithRegistryAuth: true,
+				WorkingDir:       filepath.Join("/tmp/repo", "deploy/swarm"),
+			},
+		},
+		{
+			name:   "enables registry auth with empty optional content and a root-level compose path",
+			sync:   &projectpkg.GitOpsSync{ProjectName: "ptest", ComposePath: "compose.yaml"},
+			source: &preparedSyncSource{repoPath: "/tmp/repo", composeContent: "services: {}\n"},
+			want: swarmtypes.StackDeployRequest{
+				Name:             "ptest",
+				ComposeContent:   "services: {}\n",
+				Prune:            true,
+				WithRegistryAuth: true,
+				WorkingDir:       "/tmp/repo",
+			},
+		},
+	}
 
-	// Private images can only be pulled by swarm tasks when the deploy carries registry auth.
-	assert.True(t, req.WithRegistryAuth)
-	assert.Equal(t, "descent", req.Name)
-	assert.Equal(t, "services: {}\n", req.ComposeContent)
-	assert.Equal(t, "override", req.OverrideContent)
-	assert.Equal(t, "A=1", req.EnvContent)
-	assert.Equal(t, files, req.Files)
-	assert.True(t, req.Prune)
-	assert.Equal(t, filepath.Join("/tmp/repo", "deploy/swarm"), req.WorkingDir)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Private images can only be pulled by swarm tasks when the deploy carries registry auth.
+			got := buildSwarmStackDeployRequestInternal(tc.sync, tc.source, tc.overrideContent, tc.envContent, tc.files)
+			assert.Equal(t, tc.want, got)
+		})
+	}
 }
 
 func TestEnvContentChangedInternal(t *testing.T) {
