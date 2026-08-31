@@ -1140,8 +1140,14 @@ func entriesNeedDirectorySyncInternal(entries []string, allowed map[string]struc
 }
 
 // buildSwarmStackDeployRequestInternal assembles the deploy request for a Git Sync that targets
-// a Swarm stack. WithRegistryAuth is always set so the Git Sync path resolves stored registry
-// credentials the same way a direct stack deploy does. Resolution happens per image at deploy
+// a Swarm stack.
+//
+// WithRegistryAuth is always set (#3778) — the canonical statement of the invariant; the other
+// server-initiated deploy path (buildStackSourceDeployRequestInternal in internal/swarm) points
+// here. Swarm tasks pull with only the auth embedded in the service spec, so a request without
+// it makes every private image fail to pull; on the stack-source edit path a service added in
+// the edit has no previous spec to fall back on. Setting it resolves stored registry
+// credentials the same way a direct stack deploy does: resolution happens per image at deploy
 // time and yields nothing unless a configured container registry matches that image's host, so
 // stacks built only from public images are unaffected.
 func buildSwarmStackDeployRequestInternal(sync *projectpkg.GitOpsSync, source *preparedSyncSource, overrideContent string, envContent string, swarmFiles []swarmtypes.SyncFile) swarmtypes.StackDeployRequest {

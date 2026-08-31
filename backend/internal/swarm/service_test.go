@@ -147,6 +147,74 @@ func TestSwarmService_FetchSwarmNodeIdentityViaEdgeInternal_UsesEnvironmentAcces
 	require.True(t, identity.SwarmActive)
 }
 
+// TestBuildStackSourceDeployRequestInternal guards the WithRegistryAuth invariant
+// documented on buildSwarmStackDeployRequestInternal in internal/gitops.
+func TestBuildStackSourceDeployRequestInternal(t *testing.T) {
+	t.Parallel()
+
+	files := []swarmtypes.SyncFile{{RelativePath: "configs/app.conf", Content: []byte("k=v")}}
+
+	cases := []struct {
+		name      string
+		stackName string
+		req       swarmtypes.StackSourceUpdateRequest
+		want      swarmtypes.StackDeployRequest
+	}{
+		{
+			name:      "populates all fields and enables registry auth",
+			stackName: "descent",
+			req: swarmtypes.StackSourceUpdateRequest{
+				ComposeContent:  "services: {}\n",
+				OverrideContent: "override",
+				EnvContent:      "A=1",
+				Files:           files,
+			},
+			want: swarmtypes.StackDeployRequest{
+				Name:             "descent",
+				ComposeContent:   "services: {}\n",
+				OverrideContent:  "override",
+				EnvContent:       "A=1",
+				Files:            files,
+				Prune:            true,
+				WithRegistryAuth: true,
+			},
+		},
+		{
+			name:      "enables registry auth with empty optional content",
+			stackName: "ptest",
+			req:       swarmtypes.StackSourceUpdateRequest{ComposeContent: "services: {}\n"},
+			want: swarmtypes.StackDeployRequest{
+				Name:             "ptest",
+				ComposeContent:   "services: {}\n",
+				Prune:            true,
+				WithRegistryAuth: true,
+			},
+		},
+		{
+			name:      "passes an empty file list through unchanged",
+			stackName: "ptest",
+			req: swarmtypes.StackSourceUpdateRequest{
+				ComposeContent: "services: {}\n",
+				Files:          []swarmtypes.SyncFile{},
+			},
+			want: swarmtypes.StackDeployRequest{
+				Name:             "ptest",
+				ComposeContent:   "services: {}\n",
+				Files:            []swarmtypes.SyncFile{},
+				Prune:            true,
+				WithRegistryAuth: true,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildStackSourceDeployRequestInternal(tc.stackName, tc.req)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 type stackSourceDeployRecorder struct {
 	calls   int
 	lastReq swarmtypes.StackDeployRequest
@@ -185,8 +253,7 @@ func TestSwarmService_UpdateAndGetStackSource_UsesStoredFilesWithoutSwarmManager
 	require.Equal(t, "demo-stack", updated.Name)
 	// Saving stack source must trigger an actual stack deploy (#3463).
 	require.Equal(t, 1, deployRec.calls)
-	// The edit-path redeploy must carry registry auth, the same as Git Sync (#3778):
-	// a service added in the edit has no previous spec to fall back on.
+	// Registry-auth invariant — see buildSwarmStackDeployRequestInternal in internal/gitops.
 	require.True(t, deployRec.lastReq.WithRegistryAuth)
 
 	composePath := filepath.Join(rootDir, "0", "demo-stack", "compose.yaml")

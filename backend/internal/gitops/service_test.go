@@ -1389,9 +1389,8 @@ func TestGitOpsSyncService_GetOrCreateProjectInternal_FailsWhenBoundProjectMissi
 	assert.Contains(t, testScheduler.removed, entityjobs.GitOpsSyncJobPrefix+sync.ID)
 }
 
-// TestBuildSwarmStackDeployRequestInternal guards the Git Sync swarm deploy request.
-// WithRegistryAuth must always be set: swarm tasks pull with only the auth embedded in
-// the service spec, so a request without it makes every private image fail to pull.
+// TestBuildSwarmStackDeployRequestInternal guards the WithRegistryAuth invariant
+// documented on buildSwarmStackDeployRequestInternal.
 func TestBuildSwarmStackDeployRequestInternal(t *testing.T) {
 	t.Parallel()
 
